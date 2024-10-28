@@ -1,4 +1,4 @@
-import { ExcuseGenerator } from '@/components/excuse/ExcuseGenerator';
+import { ExcuseGenerator } from '../components/excuse/ExcuseGenerator';
 
 export default function Home() {
   return (

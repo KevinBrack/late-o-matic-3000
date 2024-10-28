@@ -1,8 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useExcuseStore } from '@/store/excuse-store';
-import { ExcuseCategory } from '@/types';
+import { useExcuseStore } from '../../store/excuse-store';
+import { ExcuseCategory } from '../../types';
 
 export function ExcuseGenerator() {
   const { generateExcuse, currentExcuse } = useExcuseStore();
