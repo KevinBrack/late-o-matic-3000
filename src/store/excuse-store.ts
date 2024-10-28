@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { ExcuseCategory, GeneratedExcuse, ExcuseHistory } from '@/types';
-import { EXCUSE_TEMPLATES } from '@/lib/constants/excuses';
+import { ExcuseCategory, GeneratedExcuse, ExcuseHistory } from '../types';
+import { EXCUSE_TEMPLATES } from '../lib/constants/excuses';
+import { replaceVariables, calculateBelievability } from '../lib/utils/excuse-generator';
 
 interface ExcuseStore {
   history: ExcuseHistory;
@@ -15,7 +16,7 @@ const getRandomElement = <T>(array: T[]): T => {
 };
 
 const getDayOfWeek = (): string => {
-  return new Date().toLocaleDateString('en-US', { weekday: 'monday' }).toLowerCase();
+  return new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
 };
 
 const getTimeOfDay = (): string => {
@@ -43,13 +44,15 @@ export const useExcuseStore = create<ExcuseStore>((set, get) => ({
     const selectedCategory = category || getRandomElement(Object.keys(EXCUSE_TEMPLATES) as ExcuseCategory[]);
     const template = getRandomElement(EXCUSE_TEMPLATES[selectedCategory]);
     
-    // TODO: Implement variable replacement logic
+    const excuseText = replaceVariables(template.template);
+    const believabilityScore = calculateBelievability(excuseText);
+    
     const generatedExcuse: GeneratedExcuse = {
       id: crypto.randomUUID(),
-      text: template.template, // Will be replaced with actual variable substitution
+      text: excuseText,
       category: selectedCategory,
       timestamp: new Date(),
-      believabilityScore: template.believabilityScore,
+      believabilityScore,
       context: {
         timeOfDay: getTimeOfDay(),
         dayOfWeek: getDayOfWeek() as any,

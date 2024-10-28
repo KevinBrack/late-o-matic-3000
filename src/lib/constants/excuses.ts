@@ -1,4 +1,4 @@
-import { ExcuseTemplate, ExcuseCategory } from '@/types';
+import { ExcuseTemplate, ExcuseCategory } from '../../types';
 
 export const EXCUSE_TEMPLATES: Record<ExcuseCategory, ExcuseTemplate[]> = {
   classic: [
