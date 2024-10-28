@@ -1,95 +1,76 @@
 import { create } from 'zustand';
-import { ExcuseCategory, GeneratedExcuse, ExcuseHistory } from '../types';
-import { EXCUSE_TEMPLATES } from '../lib/constants/excuses';
-import { replaceVariables, calculateBelievability } from '../lib/utils/excuse-generator';
+import { EXCUSE_TEMPLATES, generateVariable } from '../lib/constants/excuses';
+import { ExcuseCategory } from '../types';
 
-interface ExcuseStore {
-  history: ExcuseHistory;
-  currentExcuse: GeneratedExcuse | null;
-  generateExcuse: (category?: ExcuseCategory) => GeneratedExcuse;
+interface ExcuseState {
+  currentExcuse: string | null;
+  currentCategory: ExcuseCategory | null;
+  currentBelievabilityScore: number;
+  history: Array<{
+    text: string;
+    category: ExcuseCategory;
+    believabilityScore: number;
+    timestamp: number;
+  }>;
+  generateExcuse: (category?: ExcuseCategory) => void;
+  shareExcuse: () => Promise<void>;
   clearHistory: () => void;
-  removeExcuse: (id: string) => void;
 }
 
-const getRandomElement = <T>(array: T[]): T => {
-  return array[Math.floor(Math.random() * array.length)];
-};
-
-const getDayOfWeek = (): string => {
-  return new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-};
-
-const getTimeOfDay = (): string => {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'morning';
-  if (hour < 17) return 'afternoon';
-  return 'evening';
-};
-
-export const useExcuseStore = create<ExcuseStore>((set, get) => ({
-  history: {
-    excuses: [],
-    lastUsed: {
-      classic: null,
-      'sci-fi': null,
-      corporate: null,
-      supernatural: null,
-      environmental: null,
-      social: null,
-    },
-  },
+export const useExcuseStore = create<ExcuseState>((set, get) => ({
   currentExcuse: null,
+  currentCategory: null,
+  currentBelievabilityScore: 0,
+  history: [],
 
   generateExcuse: (category?: ExcuseCategory) => {
-    const selectedCategory = category || getRandomElement(Object.keys(EXCUSE_TEMPLATES) as ExcuseCategory[]);
-    const template = getRandomElement(EXCUSE_TEMPLATES[selectedCategory]);
-    
-    const excuseText = replaceVariables(template.template);
-    const believabilityScore = calculateBelievability(excuseText);
-    
-    const generatedExcuse: GeneratedExcuse = {
-      id: crypto.randomUUID(),
-      text: excuseText,
-      category: selectedCategory,
-      timestamp: new Date(),
-      believabilityScore,
-      context: {
-        timeOfDay: getTimeOfDay(),
-        dayOfWeek: getDayOfWeek() as any,
-      },
-    };
+    const categories = Object.keys(EXCUSE_TEMPLATES) as ExcuseCategory[];
+    const selectedCategory = category || categories[Math.floor(Math.random() * categories.length)];
+    const templates = EXCUSE_TEMPLATES[selectedCategory];
+    const template = templates[Math.floor(Math.random() * templates.length)];
 
-    set((state) => ({
-      currentExcuse: generatedExcuse,
-      history: {
-        excuses: [generatedExcuse, ...state.history.excuses],
-        lastUsed: {
-          ...state.history.lastUsed,
-          [selectedCategory]: new Date(),
-        },
-      },
+    let excuse = template.template;
+    for (const variable of template.variables) {
+      const replacement = String(generateVariable(variable));
+      excuse = excuse.replace(new RegExp(`\\{${variable}\\}`, 'g'), replacement);
+    }
+
+    set(state => ({
+      currentExcuse: excuse,
+      currentCategory: selectedCategory,
+      currentBelievabilityScore: template.believabilityScore,
+      history: [{
+        text: excuse,
+        category: selectedCategory,
+        believabilityScore: template.believabilityScore,
+        timestamp: Date.now()
+      }, ...state.history].slice(0, 10) // Keep only last 10 excuses
     }));
+  },
 
-    return generatedExcuse;
+  shareExcuse: async () => {
+    const { currentExcuse } = get();
+    if (!currentExcuse) return;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'My Late-o-matic 3000 Excuse',
+          text: currentExcuse,
+          url: window.location.href
+        });
+      } catch (error) {
+        console.error('Error sharing:', error);
+        // Fallback to clipboard
+        await navigator.clipboard.writeText(currentExcuse);
+      }
+    } else {
+      // Fallback to clipboard
+      await navigator.clipboard.writeText(currentExcuse);
+    }
   },
 
   clearHistory: () => {
-    set((state) => ({
-      history: {
-        excuses: [],
-        lastUsed: Object.fromEntries(
-          Object.keys(state.history.lastUsed).map(key => [key, null])
-        ) as Record<ExcuseCategory, null>,
-      },
-    }));
-  },
-
-  removeExcuse: (id: string) => {
-    set((state) => ({
-      history: {
-        ...state.history,
-        excuses: state.history.excuses.filter(excuse => excuse.id !== id),
-      },
-    }));
-  },
+    set({ history: [] });
+  }
 }));
